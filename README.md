@@ -7,11 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-green.svg)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/Version-1.0.2-orange.svg)](CHANGELOG.md)
-[![YouTube Demo](https://img.shields.io/badge/Demo-YouTube-red.svg)](https://youtu.be/1bB5ixiZ0fA)
 
 `agent-shield-auditor` runs locally with Python 3.9+ standard library only (no third-party dependencies). It flags selected suspicious patterns for human review—it does **not** prove exploitability or provide active runtime protection.
-
-📺 **Video Walkthrough**: [Watch the step-by-step demo on YouTube](https://youtu.be/1bB5ixiZ0fA) | [View the X (Twitter) thread](https://x.com/lilisa2099/status/2126021966759153738)
 
 ---
 
@@ -140,12 +137,3 @@ python3 -m unittest discover -v
 * **This scanner does not enforce policies**: The reference shield patterns are guidance templates, not an active runtime shield. Validate all recommendations in context.
 * **Review every finding**: Static pattern matches can produce false positives or miss real vulnerabilities. Do not treat a clean scan as proof of security.
 * **Dry-run before enforcing**: Test any separately implemented temporary rules against normal traffic before enabling enforcement.
-
----
-
-## Contact & Feedback
-
-* **Bug Reports & Feature Requests**: [GitHub Issues](https://github.com/ai-life01/agent-shield-auditor/issues)
-* **Video Walkthrough**: [Watch the Demo on YouTube](https://youtu.be/1bB5ixiZ0fA)
-* **Updates & Quick Questions / Preliminary Review Assistance**: [X (@lilisa2099)](https://x.com/lilisa2099) · [Demo Post](https://x.com/lilisa2099/status/2126021966759153738)
-* **Email**: `aikanhai677@gmail.com`

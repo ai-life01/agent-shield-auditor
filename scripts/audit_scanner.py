@@ -10,6 +10,7 @@ import fnmatch
 import json
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 SUPPORTED_SUFFIXES = {".md", ".json", ".yaml", ".yml", ".py", ".sh", ".txt", ".env", ".toml", ".ini"}
@@ -93,7 +94,7 @@ def scan_path(target: Path, exclude_patterns=None, max_file_size=1_048_576) -> d
     exclude_patterns = exclude_patterns or []
     target = target.expanduser()
     if not target.exists():
-        return {"error": f"Target not found: {target}", "files_scanned": 0,
+        return {"error": f"Target not found: {target}", "files_scanned": 0, "files_skipped": 0,
                 "total_findings": 0, "severity_summary": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}, "findings": []}
 
     if target.is_file():
@@ -111,7 +112,7 @@ def scan_path(target: Path, exclude_patterns=None, max_file_size=1_048_576) -> d
                 continue
             files.append(candidate)
     else:
-        return {"error": f"Target is not a regular file or directory: {target}", "files_scanned": 0,
+        return {"error": f"Target is not a regular file or directory: {target}", "files_scanned": 0, "files_skipped": 0,
                 "total_findings": 0, "severity_summary": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}, "findings": []}
 
     all_findings = []
@@ -144,6 +145,117 @@ def scan_path(target: Path, exclude_patterns=None, max_file_size=1_048_576) -> d
             "total_findings": len(all_findings), "severity_summary": summary, "findings": all_findings}
 
 
+def _md_escape(text: str) -> str:
+    """Escape pipe characters and newlines so Markdown tables stay well-formed."""
+    return str(text).replace("|", "\\|").replace("\r", " ").replace("\n", " ").strip()
+
+
+def _overall_rating(summary: dict, has_error: bool) -> str:
+    if has_error:
+        return "ERROR (Scan Incomplete)"
+    for level in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+        if summary.get(level, 0) > 0:
+            return level
+    return "CLEAN (No Heuristic Matches)"
+
+
+def format_markdown_report(result: dict, audit_date: str = None) -> str:
+    """Render a structured Markdown static security review report from scan results."""
+    audit_date = audit_date or date.today().isoformat()
+    target_name = result.get("target", "unknown")
+    summary = result.get("severity_summary", {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0})
+    findings = result.get("findings", [])
+    has_error = bool(result.get("error")) or any(f.get("rule_id") == "SCAN-ERR" for f in findings)
+    rating = _overall_rating(summary, has_error)
+
+    lines = [
+        "# AI Agent Static Security Review Report",
+        "",
+        f"- **Target System / Skill**: `{target_name}`",
+        f"- **Audit Date**: `{audit_date}`",
+        f"- **Overall Triage Rating**: `{rating}`",
+        f"- **Files Scanned / Skipped**: `{result.get('files_scanned', 0)}` / `{result.get('files_skipped', 0)}`",
+        f"- **Total Heuristic Findings**: `{result.get('total_findings', 0)}` "
+        f"(CRITICAL: {summary.get('CRITICAL', 0)}, HIGH: {summary.get('HIGH', 0)}, "
+        f"MEDIUM: {summary.get('MEDIUM', 0)}, LOW: {summary.get('LOW', 0)})",
+        "",
+        "## 1. Executive Summary",
+    ]
+
+    if result.get("error"):
+        lines.append(f"- **Scan Error**: {_md_escape(result['error'])}")
+    elif not findings:
+        lines.append(
+            "No heuristic risk patterns matched in the scanned files. Note that this is a preliminary "
+            "static pattern check—it does not prove the absence of vulnerabilities or provide runtime protection."
+        )
+    else:
+        lines.append(
+            f"Scanned `{result.get('files_scanned', 0)}` file(s) under `{target_name}` and flagged "
+            f"`{len(findings)}` heuristic pattern match(es) for human review. "
+            "These findings are static triage indicators only; they do not prove exploitability or provide runtime protection."
+        )
+
+    lines.extend([
+        "",
+        "## 2. Vulnerability & Risk Findings",
+        "",
+    ])
+
+    if not findings:
+        lines.append("_No suspicious patterns detected._")
+    else:
+        lines.extend([
+            "| Rule ID | Severity | Location | Snippet | Issue Description | Suggested Mitigation |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- |",
+        ])
+        for item in findings:
+            loc = f"`{_md_escape(item.get('file', ''))}:{item.get('line', 0)}`"
+            snippet = f"`{_md_escape(item.get('snippet', ''))}`" if item.get("snippet") else "-"
+            lines.append(
+                f"| {_md_escape(item.get('rule_id', ''))} "
+                f"| {_md_escape(item.get('severity', ''))} "
+                f"| {loc} "
+                f"| {snippet} "
+                f"| {_md_escape(item.get('description', ''))} "
+                f"| {_md_escape(item.get('remediation', ''))} |"
+            )
+
+    mitigations = sorted({item.get("rule_id") for item in findings if item.get("rule_id")})
+    config_preview = json.dumps(
+        {
+            "example_only": True,
+            "requires_human_review": True,
+            "triggered_rules": mitigations,
+            "recommended_controls": [
+                "Restrict tool permissions to an explicit allowlist",
+                "Isolate untrusted external input with XML delimiters",
+                "Require human approval for privileged or irreversible actions",
+            ],
+        },
+        indent=2,
+    )
+
+    lines.extend([
+        "",
+        "## 3. Suggested Mitigation Configuration",
+        "```json",
+        config_preview,
+        "```",
+        "",
+        "## 4. Sign-Off & Deployment Gate",
+        "- [ ] Secrets rotated and removed from prompt/config",
+        "- [ ] Representative benign cases reviewed for false positives",
+        "- [ ] Human approval is required for high-impact actions where appropriate",
+        "",
+        "> **Disclaimer**: Generated by `agent-shield-auditor` (heuristic static screening only). "
+        "Review all findings in context before making deployment decisions.",
+        "",
+    ])
+
+    return "\n".join(lines)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Heuristically scan AI agent configs and skill files for risky patterns.")
     parser.add_argument("--target", required=True, help="File or directory path to scan")
@@ -151,12 +263,28 @@ def main(argv=None):
                         help="Exclude relative-path or filename glob; may be repeated (example: '*.md')")
     parser.add_argument("--max-file-size", type=int, default=1_048_576,
                         help="Skip files larger than this many bytes (default: 1048576)")
+    parser.add_argument("--format", choices=("json", "md"), default="json",
+                        help="Output format: 'json' (default) or 'md' (Markdown security review report)")
+    parser.add_argument("--output", metavar="FILE",
+                        help="Write the scan report to FILE instead of only printing to stdout")
     args = parser.parse_args(argv)
     if args.max_file_size < 1:
         parser.error("--max-file-size must be at least 1 byte")
 
     result = scan_path(Path(args.target), args.exclude, args.max_file_size)
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    if args.format == "md":
+        rendered = format_markdown_report(result)
+    else:
+        rendered = json.dumps(result, indent=2, ensure_ascii=False)
+
+    if args.output:
+        out_path = Path(args.output).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered + ("\n" if not rendered.endswith("\n") else ""), encoding="utf-8")
+        print(f"Report written to {out_path} (findings: {result.get('total_findings', 0)})")
+    else:
+        print(rendered)
+
     if result.get("error"):
         return 1
     if any(item.get("rule_id") == "SCAN-ERR" for item in result.get("findings", [])):

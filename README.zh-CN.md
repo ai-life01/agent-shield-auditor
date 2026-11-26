@@ -7,11 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-green.svg)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/Version-1.0.2-orange.svg)](CHANGELOG.md)
-[![YouTube Demo](https://img.shields.io/badge/Demo-YouTube-red.svg)](https://youtu.be/1bB5ixiZ0fA)
 
 `agent-shield-auditor` 仅使用 Python 3.9+ 标准库即可在本地运行，无需安装任何第三方依赖。它用于标记需要人工复核的可疑风险模式——**不能**证明漏洞一定可利用，也**不提供**主动运行时拦截防护。
-
-📺 **实操演示视频**：[点击观看 YouTube 完整录屏演示](https://youtu.be/1bB5ixiZ0fA) ｜ [查看 X (Twitter) 同步动态](https://x.com/lilisa2099/status/2126021966759153738)
 
 ---
 
@@ -140,12 +137,3 @@ python3 -m unittest discover -v
 * **扫描器不会主动拦截流量**：参考资料中的防护模式是指导模板，不是已运行的运行时防护盾。
 * **每条发现都需要人工复核**：静态匹配可能误报，也可能漏报；没有发现不代表系统绝对安全。
 * **实施防护前先演练**：任何单独实现的临时拦截规则，都应先在正常流量上验证后再启用阻断。
-
----
-
-## 六、联系与反馈
-
-* **问题反馈与规则建议**：前往 [GitHub Issues](https://github.com/ai-life01/agent-shield-auditor/issues) 提交
-* **实操演示视频**：[观看 YouTube 演示视频](https://youtu.be/1bB5ixiZ0fA)
-* **日常交流 / 初步筛查协助**：在 [X (@lilisa2099)](https://x.com/lilisa2099) 留言或私信（[演示推文](https://x.com/lilisa2099/status/2126021966759153738)）
-* **联系邮箱**：`aikanhai677@gmail.com`
