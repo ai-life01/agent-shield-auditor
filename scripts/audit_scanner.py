@@ -1,130 +1,170 @@
 #!/usr/bin/env python3
-"""
-Agent Shield Auditor - Static Security & Risk Scanner
-Zero external dependencies (Python 3.9+ standard library only).
+"""Agent Shield Auditor: heuristic static scanner for AI agent project files.
+
+Python 3.9+ standard library only. This tool reports suspicious patterns; it is
+not a substitute for contextual security review or runtime protection.
 """
 
 import argparse
+import fnmatch
 import json
 import re
 import sys
 from pathlib import Path
 
+SUPPORTED_SUFFIXES = {".md", ".json", ".yaml", ".yml", ".py", ".sh", ".txt", ".env", ".toml", ".ini"}
+DEFAULT_EXCLUDED_DIRS = {
+    ".git", ".hg", ".svn", ".venv", "venv", "env", "node_modules",
+    "__pycache__", ".mypy_cache", ".pytest_cache", "dist", "build",
+}
+SECRET_PATTERN = re.compile(
+    r"sk-[a-zA-Z0-9_-]{20,}|gh[pousr]_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|"
+    r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
+    re.IGNORECASE,
+)
+
 RISK_RULES = [
     {
-        "id": "SHIELD-001",
-        "category": "Privilege Escalation",
-        "severity": "CRITICAL",
-        "pattern": r"(Bash\(\*\)|shell\s*:\s*true|subprocess\.Popen\(.*shell=True|os\.system\()",
-        "description": "Unrestricted shell execution detected. Agent can execute arbitrary OS commands.",
-        "remediation": "Restrict allowed commands to explicit allowlists (e.g., Bash(git:status)) and disable shell=True."
+        "id": "SHIELD-001", "category": "Privilege Escalation", "severity": "CRITICAL",
+        "pattern": r"(?:Bash\(\*\)|shell\s*:\s*true|subprocess\.Popen\([^\n]{0,240}shell\s*=\s*True|os\.system\s*\()",
+        "description": "Potentially unrestricted shell or OS command execution detected.",
+        "remediation": "Prefer explicit command allowlists, avoid shell=True, and require approval for destructive actions.",
     },
     {
-        "id": "SHIELD-002",
-        "category": "Credential & Secret Exposure",
-        "severity": "CRITICAL",
-        "pattern": r"(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{30,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)",
-        "description": "Hardcoded API key, access token, or private key detected in agent configuration or prompt.",
-        "remediation": "Remove plaintext secrets immediately; inject via scoped environment variables or secret manager."
+        "id": "SHIELD-002", "category": "Credential & Secret Exposure", "severity": "CRITICAL",
+        "pattern": r"(?:sk-[a-zA-Z0-9_-]{20,}|gh[pousr]_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)",
+        "description": "A string matching a common API key, access token, or private-key marker was detected.",
+        "remediation": "Treat the value as potentially exposed: revoke/rotate real credentials, remove them from tracked files, and use a secret manager or scoped environment variables.",
     },
     {
-        "id": "SHIELD-003",
-        "category": "Prompt & Indirect Injection",
-        "severity": "HIGH",
-        "pattern": r"(ignore (all )?previous instructions|system prompt|you are now|disregard prior rules|\{\{\s*user_input\s*\}\})",
-        "description": "Potential prompt injection payload or unescaped user input interpolation detected.",
-        "remediation": "Wrap untrusted external data in XML boundary tags (<untrusted_data>) and strip instruction overrides."
+        "id": "SHIELD-003", "category": "Prompt & Indirect Injection", "severity": "HIGH",
+        "pattern": r"(?:ignore\s+(?:all\s+)?previous\s+instructions|disregard\s+(?:all\s+)?(?:prior|previous)\s+(?:rules|instructions)|\{\{\s*user_input\s*\}\})",
+        "description": "A common instruction-override phrase or an unescaped user_input template marker was detected.",
+        "remediation": "Treat external content as untrusted data, isolate it from system instructions, and review how interpolated input is handled. Text matching alone does not prove an exploitable injection.",
     },
     {
-        "id": "SHIELD-004",
-        "category": "Unbounded Network Egress",
-        "severity": "HIGH",
-        "pattern": r"(curl\s+.*\$\(|wget\s+http|requests\.(post|put)\(.*verify=False|0\.0\.0\.0/0)",
-        "description": "Unrestricted outbound network call or disabled TLS verification detected.",
-        "remediation": "Enforce strict domain allowlists and require TLS certificate verification."
+        "id": "SHIELD-004", "category": "Unbounded Network Egress", "severity": "HIGH",
+        "pattern": r"(?:curl\s+[^\n]{0,160}\$\(|wget\s+https?://|requests\.(?:post|put)\([^\n]{0,200}verify\s*=\s*False|0\.0\.0\.0/0)",
+        "description": "A potentially risky outbound network pattern or disabled TLS verification was detected.",
+        "remediation": "Review the destination and data being sent, use domain allowlists where appropriate, and keep TLS certificate verification enabled.",
     },
     {
-        "id": "SHIELD-005",
-        "category": "Autonomous Runtime Modification",
-        "severity": "MEDIUM",
-        "pattern": r"(ebpf|iptables|ufw\s+allow|chmod\s+777|sudo\s+)",
-        "description": "Agent attempts or configures low-level OS/network policy modifications without human gate.",
-        "remediation": "Require cryptographic signature verification and explicit human-in-the-loop approval before applying runtime shields."
-    }
+        "id": "SHIELD-005", "category": "Autonomous Runtime Modification", "severity": "MEDIUM",
+        "pattern": r"(?:\bebpf\b|\biptables\b|\bufw\s+allow\b|\bchmod\s+777\b|\bsudo\s+)",
+        "description": "A command or term associated with privileged OS/network policy changes was detected; context review is required.",
+        "remediation": "Review whether the operation is necessary, minimize privileges, and require explicit human approval for production changes.",
+    },
 ]
+
+
+def _snippet(line: str) -> str:
+    """Return a short evidence snippet without copying obvious secret-like strings."""
+    clipped = line.strip()[:240]
+    return SECRET_PATTERN.sub("[REDACTED_SECRET]", clipped)[:160]
 
 
 def scan_text(content: str, filepath: str) -> list:
     findings = []
-    lines = content.splitlines()
-    for line_no, line in enumerate(lines, start=1):
+    for line_no, line in enumerate(content.splitlines(), start=1):
         for rule in RISK_RULES:
             if re.search(rule["pattern"], line, re.IGNORECASE):
                 findings.append({
-                    "rule_id": rule["id"],
-                    "severity": rule["severity"],
-                    "category": rule["category"],
-                    "file": filepath,
-                    "line": line_no,
-                    "snippet": line.strip()[:120],
-                    "description": rule["description"],
-                    "remediation": rule["remediation"]
+                    "rule_id": rule["id"], "severity": rule["severity"],
+                    "category": rule["category"], "file": filepath, "line": line_no,
+                    "snippet": _snippet(line), "description": rule["description"],
+                    "remediation": rule["remediation"],
                 })
     return findings
 
 
-def scan_path(target: Path) -> dict:
-    all_findings = []
-    files_scanned = 0
+def _is_excluded(path: Path, root: Path, exclude_patterns: list) -> bool:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        relative = path
+    if any(part in DEFAULT_EXCLUDED_DIRS for part in relative.parts):
+        return True
+    relative_text = relative.as_posix()
+    return any(fnmatch.fnmatch(relative_text, pattern) or fnmatch.fnmatch(path.name, pattern)
+               for pattern in exclude_patterns)
+
+
+def scan_path(target: Path, exclude_patterns=None, max_file_size=1_048_576) -> dict:
+    exclude_patterns = exclude_patterns or []
+    target = target.expanduser()
+    if not target.exists():
+        return {"error": f"Target not found: {target}", "files_scanned": 0,
+                "total_findings": 0, "severity_summary": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}, "findings": []}
 
     if target.is_file():
         files = [target]
+        root = target.parent
     elif target.is_dir():
-        files = [p for p in target.rglob("*") if p.is_file() and p.suffix in {".md", ".json", ".yaml", ".yml", ".py", ".sh", ".txt", ".env"}]
+        root = target
+        files = []
+        for candidate in target.rglob("*"):
+            if candidate.is_symlink() or not candidate.is_file():
+                continue
+            if candidate.suffix.lower() not in SUPPORTED_SUFFIXES and candidate.name != ".env":
+                continue
+            if _is_excluded(candidate, root, exclude_patterns):
+                continue
+            files.append(candidate)
     else:
-        return {"error": f"Target not found: {target}"}
+        return {"error": f"Target is not a regular file or directory: {target}", "files_scanned": 0,
+                "total_findings": 0, "severity_summary": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}, "findings": []}
 
-    for f in files:
+    all_findings = []
+    files_scanned = 0
+    files_skipped = 0
+    for file_path in sorted(files):
+        if file_path.is_symlink():
+            files_skipped += 1
+            continue
         try:
-            text = f.read_text(encoding="utf-8", errors="ignore")
+            if file_path.stat().st_size > max_file_size:
+                files_skipped += 1
+                continue
+            content = file_path.read_text(encoding="utf-8", errors="replace")
             files_scanned += 1
-            all_findings.extend(scan_text(text, str(f)))
-        except Exception as exc:
+            all_findings.extend(scan_text(content, str(file_path)))
+        except OSError as exc:
             all_findings.append({
-                "rule_id": "SCAN-ERR",
-                "severity": "LOW",
-                "category": "Read Error",
-                "file": str(f),
-                "line": 0,
-                "snippet": "",
-                "description": str(exc),
-                "remediation": "Check file permissions and encoding."
+                "rule_id": "SCAN-ERR", "severity": "LOW", "category": "Read Error",
+                "file": str(file_path), "line": 0, "snippet": "",
+                "description": f"Unable to read file: {exc}",
+                "remediation": "Check file permissions and encoding.",
             })
 
-    summary = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
-    for item in all_findings:
-        sev = item.get("severity", "LOW")
-        if sev in summary:
-            summary[sev] += 1
+    summary = {severity: 0 for severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW")}
+    for finding in all_findings:
+        summary[finding.get("severity", "LOW")] += 1
 
-    return {
-        "files_scanned": files_scanned,
-        "total_findings": len(all_findings),
-        "severity_summary": summary,
-        "findings": all_findings
-    }
+    return {"target": str(target), "files_scanned": files_scanned, "files_skipped": files_skipped,
+            "total_findings": len(all_findings), "severity_summary": summary, "findings": all_findings}
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Audit AI Agent configs and prompts for security risks.")
-    parser.add_argument("--target", required=True, help="File or directory path to audit")
-    args = parser.parse_args()
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Heuristically scan AI agent configs and skill files for risky patterns.")
+    parser.add_argument("--target", required=True, help="File or directory path to scan")
+    parser.add_argument("--exclude", action="append", default=[], metavar="GLOB",
+                        help="Exclude relative-path or filename glob; may be repeated (example: '*.md')")
+    parser.add_argument("--max-file-size", type=int, default=1_048_576,
+                        help="Skip files larger than this many bytes (default: 1048576)")
+    args = parser.parse_args(argv)
+    if args.max_file_size < 1:
+        parser.error("--max-file-size must be at least 1 byte")
 
-    result = scan_path(Path(args.target))
+    result = scan_path(Path(args.target), args.exclude, args.max_file_size)
     print(json.dumps(result, indent=2, ensure_ascii=False))
+    if result.get("error"):
+        return 1
+    if any(item.get("rule_id") == "SCAN-ERR" for item in result.get("findings", [])):
+        return 1
     if result.get("severity_summary", {}).get("CRITICAL", 0) > 0:
-        sys.exit(2)
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

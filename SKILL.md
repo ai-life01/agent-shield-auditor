@@ -1,22 +1,22 @@
 ---
 name: agent-shield-auditor
-description: Audit AI agent prompts, MCP tool schemas, and runtime logs for prompt injection, privilege escalation, and sensitive data leaks, and generate virtual runtime shields (allowlists, delimiter wrappers, and human-in-the-loop gates). Use when the user asks to audit an agent workflow, check MCP permissions, generate a virtual security patch, or secure an AI agent before deployment.
+description: Help review AI agent prompts, MCP tool schemas, and Skill/configuration files for selected suspicious patterns, then suggest hardening measures for human review. The bundled scanner is heuristic static analysis only; it does not prove exploitability or implement runtime protection. Use when the user asks for a preliminary review of agent configuration or permissions.
 license: MIT
 compatibility: Requires Python 3.9+ for running local rule scanner scripts.
 metadata:
   author: rsplife
-  version: "1.0.0"
+  version: "1.0.2"
 ---
 
 # Agent Shield Auditor
 
-Audit AI agent configurations, tool definitions, and runtime payloads to detect security vulnerabilities and generate lightweight virtual shields (policy rules, input sanitizers, and human-in-the-loop gates) before official upstream patches arrive.
+Perform a preliminary, heuristic review of AI agent configurations and tool definitions. Report suspicious patterns and suggest possible mitigations; findings must be reviewed in context. This skill does not implement or enforce runtime shields.
 
 ## When to Use
 
 * The user asks to audit an AI agent, `SKILL.md`, or MCP server tool permissions for security risks.
 * The user wants to prevent prompt injection, unauthorized command execution, or API key / financial data leakage.
-* The user needs a temporary "virtual shield" to block exploit payloads while keeping legitimate agent traffic flowing.
+* The user wants suggestions for hardening an agent workflow, with human review before implementation.
 
 ## Steps
 
@@ -28,20 +28,20 @@ Inspect the provided agent prompt, tool schema, or logs across four risk vectors
 * **Unverified Runtime Policy Changes**: Allowing an autonomous agent to modify firewall, kernel/eBPF, or production database rules without cryptographic verification or human approval.
 
 ### 2. Run Static & Payload Scan
-Execute `scripts/audit_scanner.py` against the target file or payload string to detect high-risk patterns and output a structured JSON severity score:
+Execute `scripts/audit_scanner.py` against a target file or directory to flag selected suspicious patterns and output structured JSON triage results:
 
 ```bash
 python scripts/audit_scanner.py --target <path_to_file_or_dir>
 ```
 
-### 3. Generate Virtual Shield & Hardening Rules
-Based on the findings and `references/shield-patterns.md`, output:
+### 3. Suggest Hardening Measures
+Based on findings and `references/shield-patterns.md`, suggest options for a qualified human to review:
 * **Severity Summary**: Critical / High / Medium / Low breakdown with exact line or field references.
-* **Virtual Shield Rule**: A concrete, copy-pasteable blocking rule (JSON tool-policy allowlist, XML input wrapper, or runtime guard signature) that blocks the exploit vector without breaking normal requests.
+* **Possible mitigation**: A least-privilege allowlist, an untrusted-input boundary, or a human-approval checkpoint. Do not claim the suggestion blocks an exploit unless it is implemented and tested in the target environment.
 * **Human-in-the-Loop (HITL) Gate**: Explicit confirmation checkpoints for irreversible actions (payments, deletions, external network calls).
 
 ### 4. Output Using Standard Report Template
-Format the final audit report using `assets/audit-report-template.md` so it can be delivered directly to engineering teams or clients.
+Format a preliminary review report using `assets/audit-report-template.md`. Clearly label unverified findings and the scope/limitations of the review.
 
 ## Gotchas
 
