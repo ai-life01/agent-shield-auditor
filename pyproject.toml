@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-shield-auditor"
+version = "1.1.1"
+description = "Heuristic static security scanner for AI agent, MCP, and Skill configurations."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{name = "rsplife"}]
+keywords = ["ai-agents", "mcp", "security-scanner", "static-analysis", "skills"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Environment :: Console",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ai-life01/agent-shield-auditor"
+Issues = "https://github.com/ai-life01/agent-shield-auditor/issues"
+Changelog = "https://github.com/ai-life01/agent-shield-auditor/blob/main/CHANGELOG.md"
+
+[project.scripts]
+agent-shield-auditor = "scripts.audit_scanner:main"
+
+[tool.setuptools]
+packages = ["scripts"]

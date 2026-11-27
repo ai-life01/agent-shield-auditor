@@ -6,7 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-green.svg)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Version-1.1.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.1.1-orange.svg)](CHANGELOG.md)
+[![CI](https://github.com/ai-life01/agent-shield-auditor/actions/workflows/test.yml/badge.svg)](https://github.com/ai-life01/agent-shield-auditor/actions/workflows/test.yml)
 [![YouTube Demo](https://img.shields.io/badge/Demo-YouTube-red.svg)](https://youtu.be/1bB5ixiZ0fA)
 
 `agent-shield-auditor` runs locally with Python 3.9+ standard library only (no third-party dependencies). It flags selected suspicious patterns for human review—it does **not** prove exploitability or provide active runtime protection.
@@ -24,7 +25,7 @@
    * **Unbounded Network & Runtime Policy Changes (`SHIELD-004`, `SHIELD-005`)**: Flags risky outbound network calls, disabled TLS verification, and privileged OS/firewall commands (`sudo`, `iptables`, `ufw`, `ebpf`, `chmod 777`).
 
 2. **Zero-Dependency Local Scanner (`scripts/audit_scanner.py`)**
-   * Written with Python 3.9+ standard library only; no `pip install` required.
+   * Written with Python 3.9+ standard library only; you can run the script directly with no `pip install` required. Installing with `pip` or `pipx` is optional if you want the `agent-shield-auditor` command.
    * Scans a single file or supported files in a directory (`.md`, `.json`, `.yaml`, `.yml`, `.py`, `.sh`, `.txt`, `.env`, `.toml`, `.ini`). Skips common generated/dependency directories, symlinks, and files larger than 1 MiB by default.
    * Supports both **JSON output (`--format json`)** for automation/CI and **one-click Markdown audit reports (`--format md --output report.md`)** for human review and handoff.
    * Standardized CLI exit codes:
@@ -49,12 +50,15 @@ agent-shield-auditor/
 ├── .github/
 │   └── workflows/
 │       └── test.yml                  # GitHub Actions CI for unit tests
+├── .gitignore                        # Python / packaging ignore rules
+├── pyproject.toml                    # Optional pip/pipx install metadata
 ├── SKILL.md                          # Core agent skill instructions
 ├── README.md                         # English documentation
 ├── README.zh-CN.md                   # Chinese documentation
 ├── CHANGELOG.md                      # Version history
 ├── LICENSE                           # MIT License
 ├── scripts/
+│   ├── __init__.py
 │   └── audit_scanner.py              # Zero-dependency Python security scanner
 ├── references/
 │   └── shield-patterns.md            # Virtual shield and mitigation patterns
@@ -108,13 +112,32 @@ agent-shield-auditor/
 }
 ```
 
-### Option 2: Load as a Skill in Your Agent Environment
+### Option 2: Install with pip or pipx (optional)
+
+The scanner has no third-party runtime dependencies. Install the package only if you want the `agent-shield-auditor` command on your `PATH`:
+
+```bash
+pip install git+https://github.com/ai-life01/agent-shield-auditor.git
+# or, isolated from your system Python:
+pipx install git+https://github.com/ai-life01/agent-shield-auditor.git
+```
+
+Then scan a file or directory:
+
+```bash
+agent-shield-auditor --target /path/to/your/agent-or-skill
+agent-shield-auditor --target assets/sample_vulnerable_agent.json --format md --output audit-report.md
+```
+
+You can still run `python scripts/audit_scanner.py --target ...` from a clone without installing.
+
+### Option 3: Load as a Skill in Your Agent Environment
 
 1. Copy the `agent-shield-auditor` folder into your skill directory (such as `~/.claude/skills/`, a project `.skills/` folder, or a `SKILL.md`-compatible platform).
 2. Invoke it naturally in your prompt, for example:
    > "Use `agent-shield-auditor` to audit my MCP configuration, highlight high-risk permissions, and provide a least-privilege allowlist and human-approval gates."
 
-### Option 3: Review & Sign Off on the Generated Markdown Report
+### Option 4: Review & Sign Off on the Generated Markdown Report
 
 1. Open the generated `.md` report (or fill out `assets/audit-report-template.md`) alongside `references/shield-patterns.md` to pick appropriate allowlists, XML wrappers, or temporary guard rules.
 2. Complete the sign-off checklist items before production rollout.
@@ -154,3 +177,4 @@ python -m unittest discover -v
 * **Video Walkthrough**: [Watch the Demo on YouTube](https://youtu.be/1bB5ixiZ0fA)
 * **Updates & Quick Questions / Preliminary Review Assistance**: [X (@lilisa2099)](https://x.com/lilisa2099) · [Demo Post](https://x.com/lilisa2099/status/2126021966759153738)
 * **Email**: `aikanhai677@gmail.com`
+* **Support**: If you find this project useful, you can support the author on [Afdian / 爱发电](https://ifdian.net/a/yuanqiailab).

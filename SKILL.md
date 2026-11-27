@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.9+ for running local rule scanner scripts.
 metadata:
   author: rsplife
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Agent Shield Auditor

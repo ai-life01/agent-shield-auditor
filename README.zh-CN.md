@@ -6,7 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-green.svg)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Version-1.1.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.1.1-orange.svg)](CHANGELOG.md)
+[![CI](https://github.com/ai-life01/agent-shield-auditor/actions/workflows/test.yml/badge.svg)](https://github.com/ai-life01/agent-shield-auditor/actions/workflows/test.yml)
 [![YouTube Demo](https://img.shields.io/badge/Demo-YouTube-red.svg)](https://youtu.be/1bB5ixiZ0fA)
 
 `agent-shield-auditor` 仅使用 Python 3.9+ 标准库即可在本地运行，无需安装任何第三方依赖。它用于标记需要人工复核的可疑风险模式——**不能**证明漏洞一定可利用，也**不提供**主动运行时拦截防护。
@@ -24,7 +25,7 @@
    * **异常外连与运行时策略变更（`SHIELD-004`、`SHIELD-005`）**：检测高风险网络外发、关闭 TLS 证书校验，以及高权限系统/防火墙命令（`sudo`、`iptables`、`ufw`、`ebpf`、`chmod 777`）。
 
 2. **本地零依赖自动化扫描器（`scripts/audit_scanner.py`）**
-   * 纯 Python 3.9+ 标准库实现，无需执行 `pip install`。
+   * 纯 Python 3.9+ 标准库实现，可直接运行脚本，不必执行 `pip install`。如需把 `agent-shield-auditor` 安装为命令行工具，可选用 `pip` 或 `pipx`（见下方可选安装方式）。
    * 支持扫描单个文件或整个目录中的受支持文件（`.md`、`.json`、`.yaml`、`.yml`、`.py`、`.sh`、`.txt`、`.env`、`.toml`、`.ini`），默认自动跳过常见依赖/构建目录、符号链接及大于 1 MiB 的文件。
    * 同时支持 **结构化 JSON 输出（`--format json`）** 与 **一键生成可读 Markdown 审查报告（`--format md --output audit-report.md`）**，方便人工阅读与交付归档。
    * 标准 CLI 退出码：
@@ -49,12 +50,15 @@ agent-shield-auditor/
 ├── .github/
 │   └── workflows/
 │       └── test.yml                  # GitHub Actions 自动化单元测试配置
+├── .gitignore                        # Python / 打包相关忽略规则
+├── pyproject.toml                    # 可选的 pip/pipx 安装配置
 ├── SKILL.md                          # 核心 Agent 技能指令文件
 ├── README.md                         # 英文主说明文档
 ├── README.zh-CN.md                   # 中文详细说明文档
 ├── CHANGELOG.md                      # 版本更新日志
 ├── LICENSE                           # MIT 开源协议
 ├── scripts/
+│   ├── __init__.py
 │   └── audit_scanner.py              # 本地零依赖 Python 安全扫描脚本
 ├── references/
 │   └── shield-patterns.md            # 防护模式、白名单与隔离边界参考库
@@ -108,13 +112,32 @@ agent-shield-auditor/
 }
 ```
 
-### 方式 B：作为 Skill 接入智能体工作流
+### 方式 B：使用 pip 或 pipx 安装（可选）
+
+扫描器运行时没有任何第三方依赖。只有在希望把 `agent-shield-auditor` 安装到系统命令行时，才需要执行下面的安装步骤：
+
+```bash
+pip install git+https://github.com/ai-life01/agent-shield-auditor.git
+# 或者使用独立环境，避免影响系统 Python：
+pipx install git+https://github.com/ai-life01/agent-shield-auditor.git
+```
+
+安装后可以直接扫描文件或目录：
+
+```bash
+agent-shield-auditor --target /path/to/your/agent-or-skill
+agent-shield-auditor --target assets/sample_vulnerable_agent.json --format md --output audit-report.md
+```
+
+你仍然可以在克隆下来的仓库里直接运行 `python scripts/audit_scanner.py --target ...`，无需安装。
+
+### 方式 C：作为 Skill 接入智能体工作流
 
 1. 将整个 `agent-shield-auditor` 文件夹复制到你的 Agent 技能目录（例如 `~/.claude/skills/`、项目 `.skills/` 或支持 `SKILL.md` 的技能平台）。
 2. 在对话中直接调用，例如：
    > “请使用 `agent-shield-auditor` 审计我的 MCP 工具配置，列出高危权限问题，并给出最小权限白名单与人工审批卡点。”
 
-### 方式 C：复核生成的 Markdown 报告并完成加固
+### 方式 D：复核生成的 Markdown 报告并完成加固
 
 1. 打开自动生成的 `.md` 审查报告（或对照 `assets/audit-report-template.md`），查阅 `references/shield-patterns.md` 选择对应的白名单、XML 隔离标签或临时防护规则。
 2. 逐项确认报告末尾的上线核对清单，完成发布前安全签收。
@@ -154,3 +177,4 @@ python -m unittest discover -v
 * **实操演示视频**：[观看 YouTube 演示视频](https://youtu.be/1bB5ixiZ0fA)
 * **日常交流 / 初步筛查协助**：在 [X (@lilisa2099)](https://x.com/lilisa2099) 留言或私信（[演示推文](https://x.com/lilisa2099/status/2126021966759153738)）
 * **联系邮箱**：`aikanhai677@gmail.com`
+* **支持作者**：如果这个项目对你有帮助，欢迎在 [爱发电](https://ifdian.net/a/yuanqiailab) 支持一下。

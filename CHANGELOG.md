@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 — 2026-11-27
+
+- Added `.gitignore` and stopped tracking compiled Python cache files (`__pycache__` / `*.pyc`).
+- Added GitHub Actions workflow (`.github/workflows/test.yml`) to run `python -m unittest discover -v` on Python 3.9–3.12, plus a smoke scan of `assets/sample_vulnerable_agent.json` (exit code 2 is expected).
+- Added `pyproject.toml` so the project can be installed with `pip` or `pipx` and exposes the `agent-shield-auditor` console command. There are still no runtime third-party dependencies; `python scripts/audit_scanner.py --target ...` continues to work without installing the package.
+- Updated `README.md` and `README.zh-CN.md` with optional install instructions, a CI badge, and a short support link to Afdian.
+- Synced package and documentation versions to `1.1.1`.
+
+
 ## 1.1.0 — 2026-11-27
 
 - Added `--format md` to generate structured Markdown security review reports directly from scan results.
