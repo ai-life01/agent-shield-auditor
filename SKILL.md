@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.9+ for running local rule scanner scripts.
 metadata:
   author: rsplife
-  version: "1.0.2"
+  version: "1.1.0"
 ---
 
 # Agent Shield Auditor
@@ -32,6 +32,8 @@ Execute `scripts/audit_scanner.py` against a target file or directory to flag se
 
 ```bash
 python scripts/audit_scanner.py --target <path_to_file_or_dir>
+# Or generate a Markdown report directly:
+python scripts/audit_scanner.py --target <path_to_file_or_dir> --format md --output audit-report.md
 ```
 
 ### 3. Suggest Hardening Measures

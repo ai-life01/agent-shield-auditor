@@ -1,24 +1,22 @@
 # AI Agent Static Security Review Report
 
-- **Target System / Skill**: `{{target_name}}`
-- **Audit Date**: `{{audit_date}}`
-- **Overall Risk Rating**: `{{risk_rating}}`
+- **Target System / Skill**: `<name or path>`
+- **Audit Date**: `<YYYY-MM-DD>`
+- **Overall Triage Rating**: `<CRITICAL | HIGH | MEDIUM | LOW | CLEAN>`
 
 ## 1. Executive Summary
-Summarize the review scope, suspicious patterns, and recommended next steps. State that this is a heuristic static review and does not prove exploitability or provide runtime protection.
+- Scope, findings count, and key context (note that static findings require human review).
 
 ## 2. Vulnerability & Risk Findings
-
-| Rule ID | Severity | Location | Issue Description | Suggested Mitigation |
-| :--- | :--- | :--- | :--- | :--- |
-| SHIELD-001 | CRITICAL | Line X | Example finding | Restrict tool allowlist |
+| Rule ID | Severity | Location | Snippet | Issue Description | Suggested Mitigation |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `<SHIELD-XXX>` | `<HIGH>` | `<file:line>` | `<redacted snippet>` | `<description>` | `<remediation>` |
 
 ## 3. Suggested Mitigation Configuration
 ```json
 {
   "example_only": true,
-  "requires_human_review": true,
-  "mitigations_to_validate": []
+  "requires_human_review": true
 }
 ```
 

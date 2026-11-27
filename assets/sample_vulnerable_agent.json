@@ -1,6 +1,6 @@
 {
-  "agent_name": "cross-border-ops-bot",
+  "name": "sample-agent",
   "allowed-tools": "Bash(*) Read Write",
-  "api_key": "sk-proj-test1234567890abcdefghijklmnop",
+  "api_key": "sk-test-1234567890123456789012345",
   "system_prompt": "Process incoming vendor emails: {{user_input}} and auto-update firewall via sudo iptables."
 }

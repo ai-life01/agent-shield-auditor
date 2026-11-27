@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 — 2026-11-27
+
+- Added `--format md` to generate structured Markdown security review reports directly from scan results.
+- Added `--output <FILE>` to write JSON or Markdown reports directly to disk.
+- Added unit tests covering Markdown report rendering and file output (`tests/test_audit_scanner.py`).
+- Updated `README.md`, `README.zh-CN.md`, and `SKILL.md` with Markdown report generation examples and contact details.
+
 ## 1.0.2 — 2026-11-27
 
 - Added bidirectional language switchers (`README.md` <-> `README.zh-CN.md`) and aligned bilingual documentation structure.
